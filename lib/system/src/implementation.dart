@@ -1,24 +1,35 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'system.dart';
+import 'core.dart';
 
-class SystemBloc<State, Event, Environment> extends Bloc<Event, State> {
+class ReducibleBloc<State, Event, Environment> extends Bloc<Event, State> {
   final Environment _environment;
-  final Reducer<State, Event, Environment> _reducer;
-  final Map<Effect, StreamSubscription> _effectsMap = {};
+  final BlocReducer<State, Event, Environment> _reducer;
+  final Map<BlocEffect, StreamSubscription> _effectsMap = {};
 
-  SystemBloc({
+  ReducibleBloc({
     required State initialState,
     required Environment environment,
-    required Reducer<State, Event, Environment> reducer,
+    required BlocReducer<State, Event, Environment> reducer,
   })  : _environment = environment,
         _reducer = reducer,
-        super(initialState) {
-    on<Event>(_dispatchEvent);
+        super(initialState);
+
+  void onReducible<E extends Event>({
+    EventTransformer<E>? transformer,
+  }) =>
+      super.on<E>(_handler, transformer: transformer);
+
+  @override
+  void on<E extends Event>(
+    EventHandler<E, State> handler, {
+    EventTransformer<E>? transformer,
+  }) {
+    assert((false), 'on<Event>() not allowed in this class, use onReducible<Event>()');
   }
 
-  void _dispatchEvent(Event event, Emitter emit) {
+  void _handler(Event event, Emitter emit) {
     final result = _reducer.reduce(super.state, event, _environment);
 
     // cancel effects

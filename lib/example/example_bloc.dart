@@ -1,9 +1,8 @@
 import 'package:copy_with_extension/copy_with_extension.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/widgets.dart';
-import 'package:quiver/async.dart';
 
-import '../system/system.dart';
+import '../system/reducible_bloc.dart';
 
 part 'example_bloc.g.dart';
 
@@ -71,18 +70,25 @@ class ExampleEventUserDidEndNavigationWithResult extends ExampleEvent {
   List<Object?> get props => [result];
 }
 
+class ExampleEventUserDidSelectToggle extends ExampleEvent {
+  @override
+  List<Object?> get props => [];
+}
+
 @CopyWith()
 class ExampleState extends Equatable {
   final bool loading;
   final bool isTimerRunning;
   final int secondsRemaining;
   final int navigationCounter;
+  final bool toggle;
 
   const ExampleState({
     this.loading = false,
     this.isTimerRunning = false,
     this.secondsRemaining = 0,
     this.navigationCounter = 0,
+    this.toggle = false,
   });
 
   @override
@@ -91,11 +97,12 @@ class ExampleState extends Equatable {
         isTimerRunning,
         secondsRemaining,
         navigationCounter,
+        toggle,
       ];
 }
 
 class ExampleEnvironment {
-  Stream<CountdownTimer> Function(int seconds) getTimer;
+  Stream<int> Function(int seconds) getTimer;
   void Function() getOneUiShot;
   Future<void> Function() getNavigation;
   Future<int?> Function(int input) getNavigationWithResult;
@@ -110,81 +117,96 @@ class ExampleEnvironment {
   );
 }
 
-class ExampleBloc extends SystemBloc<ExampleState, ExampleEvent, ExampleEnvironment> {
+class ExampleBloc extends ReducibleBloc<ExampleState, ExampleEvent, ExampleEnvironment> {
   ExampleBloc({required ExampleEnvironment environment})
       : super(
           initialState: const ExampleState(),
           environment: environment,
           reducer: _ExampleReducer(),
-        );
+        ) {
+    onReducible<ExampleEventUserDidSelectLoad>();
+    onReducible<ExampleEventDidLoad>();
+    onReducible<ExampleEventUserDidToggleTimer>();
+    onReducible<ExampleEventTimerDidUpdate>();
+    onReducible<ExampleEventTimerDidComplete>();
+    onReducible<ExampleEventUserDidSelectOneUiShot>();
+    onReducible<ExampleEventUserDidSelectNavigation>();
+    onReducible<ExampleEventUserDidEndNavigation>();
+    onReducible<ExampleEventUserDidSelectNavigationWithResult>();
+    onReducible<ExampleEventUserDidEndNavigationWithResult>();
+    onReducible<ExampleEventUserDidSelectToggle>(transformer: debounce(const Duration(seconds: 2))); // debounce
+
+    // or handle all events on a base class if no need for specific concurrency transformers
+    // onReducible<ExampleEvent>();
+  }
 }
 
 const _timerKey = Key('timerKey');
 const _timerSeconds = 10;
 
-class _ExampleReducer extends Reducer<ExampleState, ExampleEvent, ExampleEnvironment> {
+class _ExampleReducer extends BlocReducer<ExampleState, ExampleEvent, ExampleEnvironment> {
   @override
-  ReducerResult<ExampleState, List<Effect>> reduce(
+  BlocReducerResult<ExampleState, List<BlocEffect>> reduce(
       ExampleState state, ExampleEvent event, ExampleEnvironment environment) {
     // Future example
     if (event is ExampleEventUserDidSelectLoad) {
-      return ReducerResult(state.copyWith(loading: true),
+      return BlocReducerResult(state.copyWith(loading: true),
           [Future.delayed(const Duration(seconds: 3)).mapResultToEffect((_) => ExampleEventDidLoad())]);
     }
 
     if (event is ExampleEventDidLoad) {
-      return ReducerResult(state.copyWith(loading: false), []);
+      return BlocReducerResult(state.copyWith(loading: false), []);
     }
     //
 
     // Event stream example
     if (event is ExampleEventUserDidToggleTimer) {
-      return ReducerResult(
+      return BlocReducerResult(
         state.copyWith(isTimerRunning: event.start, secondsRemaining: event.start ? _timerSeconds : 0),
         [
-          Effect.cancel(key: _timerKey), // ensure cancelling the running timer effect by key
+          BlocEffect.cancel(key: _timerKey), // ensure cancelling the running timer effect by key
           if (event.start) // example of filling arrays without empty data
             environment
                 .getTimer(_timerSeconds)
                 // here we map stream events to bloc ones
-                .mapResultToEffect((timer) => timer.remaining.inSeconds == 0
-                    ? ExampleEventTimerDidComplete()
-                    : ExampleEventTimerDidUpdate(timer.remaining.inSeconds))
+                .mapResultToEffect(
+                    (counter) => counter == 0 ? ExampleEventTimerDidComplete() : ExampleEventTimerDidUpdate(counter))
                 .cancellable(key: _timerKey) // effect with cancellation key
         ],
       );
     }
 
     if (event is ExampleEventTimerDidUpdate) {
-      return ReducerResult(state.copyWith(secondsRemaining: event.secondsRemaining), []);
+      return BlocReducerResult(state.copyWith(secondsRemaining: event.secondsRemaining), []);
     }
 
     if (event is ExampleEventTimerDidComplete) {
-      return ReducerResult(state.copyWith(isTimerRunning: false, secondsRemaining: 0), []);
+      return BlocReducerResult(state.copyWith(isTimerRunning: false, secondsRemaining: 0), []);
     }
     //
 
     // One ui shot example
     if (event is ExampleEventUserDidSelectOneUiShot) {
-      return ReducerResult(state, [Effect.fireAndForget(() => environment.getOneUiShot())]);
+      return BlocReducerResult(state, [BlocEffect.fireAndForget(() => environment.getOneUiShot())]);
     }
     //
 
     // Navigation example
     if (event is ExampleEventUserDidSelectNavigation) {
-      return ReducerResult(state, [
+      return BlocReducerResult(state, [
         environment.getNavigation().mapResultToEffect((_) => ExampleEventUserDidEndNavigation()),
       ]);
     }
 
     if (event is ExampleEventUserDidEndNavigation) {
-      return ReducerResult(state, [Effect.fireAndForget(() => environment.getShowMessage('Back from navigation'))]);
+      return BlocReducerResult(
+          state, [BlocEffect.fireAndForget(() => environment.getShowMessage('Back from navigation'))]);
     }
     //
 
     // Navigation with result example
     if (event is ExampleEventUserDidSelectNavigationWithResult) {
-      return ReducerResult(state, [
+      return BlocReducerResult(state, [
         environment
             .getNavigationWithResult(state.navigationCounter)
             .unwrapAsStream()
@@ -193,10 +215,16 @@ class _ExampleReducer extends Reducer<ExampleState, ExampleEvent, ExampleEnviron
     }
 
     if (event is ExampleEventUserDidEndNavigationWithResult) {
-      return ReducerResult(state.copyWith(navigationCounter: event.result), []);
+      return BlocReducerResult(state.copyWith(navigationCounter: event.result), []);
     }
     //
 
-    return ReducerResult(state, []);
+    // debounce example
+    if (event is ExampleEventUserDidSelectToggle) {
+      return BlocReducerResult(state.copyWith(toggle: !state.toggle), []);
+    }
+    //
+
+    return BlocReducerResult(state, []);
   }
 }

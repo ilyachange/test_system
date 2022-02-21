@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:quiver/async.dart';
 import 'package:test_system/example/example_bloc.dart';
 
 class ExampleScreen extends StatelessWidget {
+  const ExampleScreen({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ExampleBloc>(
@@ -65,6 +66,12 @@ class _TestWidget extends StatelessWidget {
           ),
           Text('Navigation counter: ${state.navigationCounter}'),
           const Divider(),
+          TextButton(
+            onPressed: () => context.read<ExampleBloc>().add(ExampleEventUserDidSelectToggle()),
+            child: const Text('Debounce example, 2 seconds'),
+          ),
+          Text('Toggled: ${state.toggle}'),
+          const Divider(),
         ],
       ),
     );
@@ -72,8 +79,7 @@ class _TestWidget extends StatelessWidget {
 }
 
 // These can be taken from Injector, for this example just functions
-Stream<CountdownTimer> _eventStreamExample(int seconds) =>
-    CountdownTimer(Duration(seconds: seconds + 1), const Duration(seconds: 1));
+Stream<int> _eventStreamExample(int seconds) => Stream<int>.periodic(const Duration(seconds: 1), (x) => seconds - x - 1 ).take(seconds);
 
 // UI stuff
 void _showMessage(BuildContext context, String message) =>
