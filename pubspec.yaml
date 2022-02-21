@@ -1,0 +1,32 @@
+name: test_system
+description: A new Flutter project.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+version: 1.0.0+1
+
+environment:
+  sdk: ">=2.16.0 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  rxdart: any
+  rxdart_ext: any
+  flutter_bloc: any
+  bloc_concurrency: any
+  equatable: any
+  tuple: any
+  uuid: any
+  quiver: any
+  copy_with_extension: any
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^1.0.0
+
+  build_runner: any
+  copy_with_extension_gen: any
+
+flutter:
+  uses-material-design: true
