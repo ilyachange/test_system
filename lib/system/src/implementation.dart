@@ -3,33 +3,33 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core.dart';
 
-class ReducibleBloc<State, Event, Environment> extends Bloc<Event, State> {
-  final Environment _environment;
-  final BlocReducer<State, Event, Environment> _reducer;
-  final Map<BlocEffect, StreamSubscription> _effectsMap = {};
+class ReducibleBloc<S, E, Env> extends Bloc<E, S> {
+  final Env _environment;
+  final BlocReducer<S, E, Env> _reducer;
+  final Map<BlocEffect<E>, StreamSubscription> _effectsMap = <BlocEffect<E>, StreamSubscription>{};
 
   ReducibleBloc({
-    required State initialState,
-    required Environment environment,
-    required BlocReducer<State, Event, Environment> reducer,
+    required S initialState,
+    required Env environment,
+    required BlocReducer<S, E, Env> reducer,
   })  : _environment = environment,
         _reducer = reducer,
         super(initialState);
 
-  void onReducible<E extends Event>({
-    EventTransformer<E>? transformer,
+  void onReducible<Event extends E>({
+    EventTransformer<Event>? transformer,
   }) =>
-      super.on<E>(_handler, transformer: transformer);
+      super.on<Event>(_handler, transformer: transformer);
 
   @override
-  void on<E extends Event>(
-    EventHandler<E, State> handler, {
-    EventTransformer<E>? transformer,
+  void on<Event extends E>(
+    EventHandler<Event, S> handler, {
+    EventTransformer<Event>? transformer,
   }) {
     assert((false), 'on<Event>() not allowed in this class, use onReducible<Event>()');
   }
 
-  void _handler(Event event, Emitter emit) {
+  void _handler(E event, Emitter emit) {
     final result = _reducer.reduce(super.state, event, _environment);
 
     // cancel effects

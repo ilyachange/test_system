@@ -146,7 +146,7 @@ const _timerSeconds = 10;
 
 class _ExampleReducer extends BlocReducer<ExampleState, ExampleEvent, ExampleEnvironment> {
   @override
-  BlocReducerResult<ExampleState, List<BlocEffect>> reduce(
+  BlocReducerResult<ExampleState, ExampleEvent> reduce(
       ExampleState state, ExampleEvent event, ExampleEnvironment environment) {
     // Future example
     if (event is ExampleEventUserDidSelectLoad) {
